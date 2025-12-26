@@ -1,10 +1,13 @@
 import os
+
 import requests
+
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
 API_KEY = 'eef2cd17633d424f85e7f1a5f765d6b7eb2647032c6dfef9e056e5c2d835cefbe0b46c85d10943305abfccc7da3b104e'
+
 TEMPLATE_ID = 'd0216794-be78-4770-909f-5ea58ab1fbad'
 
 @app.route('/')
