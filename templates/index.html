@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLAP.SYNC Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white p-4 font-sans">
+    <div class="max-w-md mx-auto pt-10">
+        <header class="flex items-center justify-between mb-10">
+            <h1 class="text-3xl font-black italic tracking-tighter text-indigo-500">CLAP.SYNC</h1>
+            <div class="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+        </header>
+
+        <div class="bg-zinc-900 p-8 rounded-[40px] border border-zinc-800 shadow-2xl mb-10">
+            <div class="space-y-6">
+                <div>
+                    <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-3 block">Video URL</label>
+                    <input id="videoUrl" type="text" placeholder="https://youtube.com/..." class="w-full p-5 bg-black border border-zinc-800 rounded-2xl outline-none focus:border-indigo-500 text-white transition-all font-medium">
+                </div>
+                <button id="renderBtn" class="w-full py-5 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-black uppercase tracking-widest text-sm transition-all active:scale-95">
+                    Process Video
+                </button>
+            </div>
+        </div>
+
+        <div id="queue" class="space-y-4"></div>
+    </div>
+
+    <script>
+        const renderBtn = document.getElementById('renderBtn');
+        const videoInput = document.getElementById('videoUrl');
+        const queue = document.getElementById('queue');
+
+        renderBtn.onclick = async () => {
+            const url = videoInput.value.trim();
+            if (!url) return;
+            
+            renderBtn.disabled = true;
+            renderBtn.innerText = "STARTING ENGINE...";
+
+            try {
+                const res = await fetch('/create-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_url: url })
+                });
+                const data = await res.json();
+                if (data.render_id) {
+                    addJobToQueue(data.render_id);
+                    videoInput.value = "";
+                } else { alert("Error: " + data.error); }
+            } catch (e) { alert("Failed to connect to server."); }
+            
+            renderBtn.disabled = false;
+            renderBtn.innerText = "PROCESS VIDEO";
+        };
+
+        function addJobToQueue(id) {
+            const card = document.createElement('div');
+            card.className = "bg-zinc-900 border border-zinc-800 p-6 rounded-[30px] shadow-xl";
+            card.id = `job-${id}`;
+            card.innerHTML = `
+                <p class="text-[10px] font-bold text-zinc-600 uppercase mb-3">ID: ${id.substring(0,8)}</p>
+                <div id="status-container-${id}">
+                    <div class="h-1 w-full bg-zinc-800 rounded-full overflow-hidden mb-4">
+                        <div class="h-full bg-indigo-500 w-1/2 animate-[pulse_1s_infinite]"></div>
+                    </div>
+                    <p class="text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Rendering...</p>
+                </div>
+            `;
+            queue.prepend(card);
+            pollStatus(id);
+        }
+
+        async function pollStatus(id) {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/status/${id}`);
+                    const data = await res.json();
+                    
+                    if (data.status === 'succeeded') {
+                        clearInterval(interval);
+                        document.getElementById(`status-container-${id}`).innerHTML = `
+                            <a href="${data.url}" target="_blank" class="block w-full py-4 bg-white text-black text-center rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-zinc-200 transition-all">
+                                Open Video
+                            </a>
+                        `;
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        document.getElementById(`status-container-${id}`).innerHTML = `<p class="text-red-500 text-center font-bold">FAILED</p>`;
+                    }
+                } catch (e) {}
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+
