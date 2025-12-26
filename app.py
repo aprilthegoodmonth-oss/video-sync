@@ -16,14 +16,24 @@ def create_video():
     user_video_url = request.json.get('video_url', '').strip()
     if not user_video_url:
         return jsonify({'error': 'No URL provided'}), 400
-    headers = {'Authorization': f'Bearer {API_KEY}', 'Content-Type': 'application/json'}
+    
+    headers = {
+        'Authorization': f'Bearer {API_KEY}',
+        'Content-Type': 'application/json'
+    }
+    
     payload = {
         'template_id': TEMPLATE_ID,
         'modifications': {
-            "Video": user_video_url, "Video-1": user_video_url, "video-1": user_video_url,
-            "Media": user_video_url, "Source": user_video_url, "Background": user_video_url
+            "Video": user_video_url,
+            "Video-1": user_video_url,
+            "video-1": user_video_url,
+            "Media": user_video_url,
+            "Source": user_video_url,
+            "Background": user_video_url
         }
     }
+    
     try:
         response = requests.post('https://api.creatomate.com/v1/renders', headers=headers, json=payload, timeout=30)
         data = response.json()
