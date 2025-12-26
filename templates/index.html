@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLAP.SYNC Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#020617] text-white p-4 font-sans">
+    <div class="max-w-md mx-auto pt-8">
+        <header class="flex items-center justify-between mb-8">
+            <h1 class="text-2xl font-black italic tracking-tighter">CLAP.SYNC</h1>
+            <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/30 font-bold uppercase tracking-widest">Render Live</span>
+        </header>
+
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-[40px] shadow-2xl mb-8">
+            <div class="space-y-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">YouTube Link</label>
+                    <input id="videoUrl" type="text" placeholder="Paste link..." class="w-full p-5 bg-slate-950 border border-slate-800 rounded-3xl outline-none focus:border-indigo-500 text-white font-bold transition-all">
+                </div>
+                <button id="renderBtn" class="w-full py-5 bg-indigo-600 hover:bg-indigo-500 rounded-3xl font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-indigo-900/20 active:scale-95">
+                    Process Video
+                </button>
+            </div>
+        </div>
+        <div id="queue" class="space-y-4"></div>
+    </div>
+    <script>
+        const renderBtn = document.getElementById('renderBtn');
+        const videoInput = document.getElementById('videoUrl');
+        const queue = document.getElementById('queue');
+
+        renderBtn.onclick = async () => {
+            const url = videoInput.value;
+            if (!url) return;
+            renderBtn.disabled = true;
+            renderBtn.innerText = "STARTING...";
+            try {
+                const res = await fetch('/create-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_url: url })
+                });
+                const data = await res.json();
+                if (data.render_id) { addJobToQueue(data.render_id); videoInput.value = ""; }
+                else if (data.error) { alert(data.error); }
+            } catch (e) { console.error(e); }
+            renderBtn.disabled = false;
+            renderBtn.innerText = "PROCESS VIDEO";
+        };
+
+        function addJobToQueue(id) {
+            const card = document.createElement('div');
+            card.className = "bg-slate-900 border border-slate-800 p-6 rounded-[35px] shadow-xl";
+            card.id = `job-${id}`;
+            card.innerHTML = `<p class="text-[10px] font-bold text-slate-500 uppercase mb-2">Job: ${id.substring(0,8)}</p><div id="p-bar-${id}" class="w-full h-1 bg-indigo-500 mb-4 animate-pulse"></div><button id="btn-${id}" disabled class="w-full py-3 bg-slate-800 text-slate-500 rounded-2xl text-[10px] font-bold uppercase">Rendering...</button>`;
+            queue.prepend(card);
+            pollStatus(id);
+        }
+
+        async function pollStatus(id) {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/status/${id}`);
+                    const data = await res.json();
+                    if (data.status === 'succeeded') {
+                        clearInterval(interval);
+                        const btn = document.getElementById(`btn-${id}`);
+                        const pbar = document.getElementById(`p-bar-${id}`);
+                        pbar.classList.remove('animate-pulse');
+                        pbar.classList.add('bg-green-500');
+                        btn.disabled = false;
+                        btn.innerText = "Copy Link";
+                        btn.className = "w-full py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-bold uppercase";
+                        btn.onclick = () => {
+                            const dummy = document.createElement('input');
+                            document.body.appendChild(dummy);
+                            dummy.value = data.url;
+                            dummy.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(dummy);
+                            btn.innerText = "COPIED!";
+                        };
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        document.getElementById(`btn-${id}`).innerText = "FAILED";
+                    }
+                } catch (e) { clearInterval(interval); }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+
